@@ -1,0 +1,66 @@
+alias: Light balance adjustment
+description: Adjusting the left/right balance of the two lights based on the joystick input
+
+# Trigger the automation based on the Y-axis state change, if the X-axis is in the middle
+triggers:
+  - entity_id: sensor.light_manual_control_joystick_y
+    trigger: state
+conditions:
+  - condition: template
+    value_template: >
+      {% set joyStickValue = states('sensor.light_manual_control_joystick_y') | float(0.0) %} 
+      {{ joyStickValue > 2.05 or joyStickValue < 1.85 }}
+  - condition: template
+    value_template: >
+      {% set manualAdjustStickValue = states('sensor.light_manual_control_joystick_x') | float(0.0) %} 
+      {{ manualAdjustStickValue < 1.75 and manualAdjustStickValue > 1.55 }}
+      
+actions:
+  # Repeat the actions while the joystick is tilted
+  - repeat:
+      while:
+        - condition: template
+          value_template: >
+            {% set joyStickValue = states('sensor.light_manual_control_joystick_y') | float(0.0) %} 
+            {{ joyStickValue > 2.05 or joyStickValue < 1.85 }}
+      sequence:
+        - variables:
+            # Get the tilt value of the joystick
+            joyStickValue: >-
+              {{ states('sensor.light_manual_control_joystick_y') | float(0.0) }}
+
+            # Get the current balance value
+            b_left: "{{ states('input_number.lights_balance') | int }}"
+
+            # Calculate the step value based on the tilt
+            step: |
+              {% if joyStickValue > 2.05 %}
+                {% set tilt = joyStickValue - 2.05 %}
+                {% if tilt > 0.53 %} 6
+                {% elif tilt > 0.27 %} 3
+                {% else %} 1
+                {% endif %}
+              {% elif joyStickValue < 1.85 %}
+                {% set tilt = 1.85 - joyStickValue %}
+                {% if tilt > 1.23 %} -6
+                {% elif tilt > 0.62 %} -3
+                {% else %} -1
+                {% endif %}
+              {% else %}
+                0
+              {% endif %}
+
+            # Calculate and limit the new balance value
+            new_balance: "{{ [ [ b_left + step, 100 ] | min, -100 ] | max }}"
+
+        # Update the balance value
+        - target:
+            entity_id: input_number.lights_balance
+          data:
+            value: "{{ new_balance }}"
+          action: input_number.set_value
+
+        # Set a delay of 300 milliseconds between loops
+        - delay: "00:00:00.3"
+        
+mode: single
