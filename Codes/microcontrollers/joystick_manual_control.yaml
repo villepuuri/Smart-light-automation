@@ -1,0 +1,63 @@
+esphome:
+  name: light-manual-control
+  friendly_name: Light manual control
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret manual_api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret manual_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Light-Manual-Control"
+    password: !secret manual_ap_password
+
+captive_portal:
+
+# Set up the joystick pins for the microcontroller
+sensor:
+  - platform: adc
+    pin: GPIO0
+    name: "Joystick X"
+    update_interval: 100ms
+    attenuation: 11db  # More range for input voltages
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+
+  - platform: adc
+    pin: GPIO2
+    name: "Joystick Y"
+    update_interval: 100ms
+    attenuation: 11db
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO10
+      mode: INPUT_PULLUP
+    name: "Joystick Button"
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
