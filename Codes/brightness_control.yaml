@@ -1,0 +1,95 @@
+alias: Brightness Control
+description: Adjusting the brightness of the lights based on the outdoor brightness and manual adjustments.
+
+# Trigger the adjustments if one of the following state changes
+triggers:
+  - entity_id:
+      - sensor.light_meter_light_intensity
+      - light.edison_edison
+      - light.pikku_apulainen
+      - input_number.lights_manual_adjust
+      - input_number.lights_balance
+    trigger: state
+
+# Adjust the lights only if they are all ON
+conditions:
+  - condition: and
+    conditions:
+      - condition: state
+        entity_id: light.edison_edison
+        state: "on"
+      - condition: state
+        entity_id: light.pikku_apulainen
+        state: "on"
+      - condition: state
+        entity_id: light.watt
+        state: "on"
+        
+actions:
+  # Set up the necessary variables
+  - variables:
+      # The value based on the manual adjustment
+      manual_adjust_value: "{{ states('input_number.lights_manual_adjust') | int }}"
+
+      # The brightness value based on the outdoor brightness
+      outdoor_brightness_value: >
+        {% set x = states('sensor.light_meter_light_intensity') | float %}  
+        {% set lowest_value = states('input_number.smallest_outdoor_brightness') | int %}  
+        {% if x < lowest_value %}
+          255
+        {% elif x > lowest_value + 10 %}
+          0
+        {% else %}
+          {{ (255 * (1 - (x - lowest_value) / 10)) | round(0) | int }}
+        {% endif %}
+
+      # The gain for the left light
+      left_brightness_ratio: >
+        {% set balance_value = states('input_number.lights_balance') | int %} 
+        {% if balance_value < 0 %}
+          {{ ((100+balance_value)/100) | round(2) }}
+        {% else %}
+           1 
+        {% endif %}
+
+      # The gain for the right light
+      right_brightness_ratio: >
+        {% set balance_value = states('input_number.lights_balance') | int %} 
+        {% if balance_value > 0 %}
+          {{ ((100-balance_value)/100) | round(2) }}
+        {% else %}
+           1 
+        {% endif %}
+
+  # Setting up the brightness for the right lights
+  - target:
+      entity_id:
+        - light.watt
+        - light.pikku_apulainen
+    data:
+      brightness: >
+        {% set total = manual_adjust_value + outdoor_brightness_value %} 
+        {% set total = total if total > 1 else 1 %} 
+        {% set total = total if total < 255 else 255 %}  
+        {% set returnValue = (total * right_brightness_ratio) | round(0) | int %}  
+        {% set returnValue = returnValue if returnValue > 1 else 1 %}  
+        {% set returnValue = returnValue if returnValue < 255 else 255 %} 
+        {{ returnValue }}
+    action: light.turn_on
+
+  # Setting up the brightness for the left light
+  - target:
+      entity_id:
+        - light.edison_edison
+    data:
+      brightness: >
+        {% set total = outdoor_brightness_value + manual_adjust_value %} 
+        {% set total = total if total > 1 else 1 %} 
+        {% set total = total if total < 255 else 255 %}  
+        {% set returnValue =  (total * left_brightness_ratio) | round(0) | int %} 
+        {% set returnValue = returnValue if returnValue > 1 else 1 %}  
+        {% set returnValue = returnValue if returnValue < 255 else 255 %} 
+        {{ returnValue }}
+    action: light.turn_on
+    
+mode: single
