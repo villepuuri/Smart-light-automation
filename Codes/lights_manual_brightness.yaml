@@ -1,7 +1,7 @@
 alias: Light manual control
 description: Control the light's overall brightness with a joystick.
 
-# Trigger the automation if the joystick's Y-axis goes over the limit and the X-axis is in the middle.
+# Trigger the automation if the joystick's X-axis goes over the limit and the Y-axis is in the middle.
 triggers:
   - entity_id: sensor.light_manual_control_joystick_x
     trigger: state
