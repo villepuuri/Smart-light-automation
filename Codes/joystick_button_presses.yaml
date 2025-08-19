@@ -1,0 +1,57 @@
+alias: Joystick button presses
+description: Based on the button presses of the joystick, switch the lights ON/OFF or reset the manual adjustment values
+
+# Trigger the automation when the button is pressed
+triggers:
+  - entity_id: binary_sensor.light_manual_control_joystick_button
+    to: "off"
+    trigger: state
+    
+actions:
+  # Get the current time
+  - variables:
+      press_start: "{{ as_timestamp(now()) }}"
+    enabled: true
+
+  # Wait for the button press to end
+  - wait_for_trigger:
+      - entity_id: binary_sensor.light_manual_control_joystick_button
+        to: "on"
+        trigger: state
+    timeout: "00:00:05"
+    enabled: true
+
+  # Calculate the length of the button press
+  - variables:
+      press_duration: "{{ (as_timestamp(now()) - press_start) }}"
+    enabled: true
+
+  - choose:
+      # Switch the lights, if it was a short press
+      - conditions:
+          - condition: template
+            value_template: "{{ press_duration < 0.6 }}"
+        sequence:
+          - target:
+              entity_id:
+                - light.edison_edison
+                - light.pikku_apulainen
+                - light.watt
+            action: light.toggle
+            data: {}
+
+      # Reset the manual adjustment values, if it was a long press
+      - conditions:
+          - condition: template
+            value_template: "{{ press_duration >= 0.6 }}"
+        sequence:
+          - target:
+              entity_id:
+                - input_number.lights_balance
+                - input_number.lights_manual_adjust
+            data:
+              value: 0
+            action: input_number.set_value
+            
+    enabled: true
+mode: single
