@@ -1,0 +1,67 @@
+alias: Light manual control
+description: Control the light's overall brightness with a joystick.
+
+# Trigger the automation if the joystick's Y-axis goes over the limit and the X-axis is in the middle.
+triggers:
+  - entity_id: sensor.light_manual_control_joystick_x
+    trigger: state
+conditions:
+  - condition: template
+    value_template: >
+      {% set joyStickValue = states('sensor.light_manual_control_joystick_x') | float(0.0) %} 
+      {{ joyStickValue > 1.75 or joyStickValue < 1.55 }}
+  - condition: template
+    value_template: >
+      {% set balanceStickValue = states('sensor.light_manual_control_joystick_y') | float(0.0) %} 
+      {{ balanceStickValue < 2.05 and balanceStickValue > 1.85 }}
+
+
+actions:
+  # Repeat the action while the joystick is being tilted
+  - repeat:
+      while:
+        - condition: template
+          value_template: >
+            {% set joyStickValue = states('sensor.light_manual_control_joystick_x') | float(0.0) %} 
+            {{ joyStickValue > 1.75 or joyStickValue < 1.55 }}
+      sequence:
+        - variables:
+            # Get the tilt value of the joystick
+            joyStickValue: >-
+              {{ states('sensor.light_manual_control_joystick_x') | float(0.0) }}
+
+            # Get the original value
+            manual_addition: "{{ states('input_number.lights_manual_adjust') | int }}"
+
+            # Calculate the step size based on the tilt angle
+            step: |
+              {% if joyStickValue > 1.75 %}
+                {% set tilt = joyStickValue - 1.75 %}
+                {% if tilt > 0.82 %} 10
+                {% elif tilt > 0.41 %} 5
+                {% else %} 1
+                {% endif %}
+              {% elif joyStickValue < 1.55 %}
+                {% set tilt = 1.85 - joyStickValue %}
+                {% if tilt > 1.1 %} -10
+                {% elif tilt > 0.55 %} -5
+                {% else %} -1
+                {% endif %}
+              {% else %}
+                0
+              {% endif %}
+
+            # Calculate the new value and limit it accordingly
+            new_addition: "{{ [ [ manual_addition + step, 255 ] | min, -255 ] | max }}"
+
+        # Update the Manual adjustment value
+        - target:
+            entity_id: input_number.lights_manual_adjust
+          data:
+            value: "{{ new_addition }}"
+          action: input_number.set_value
+
+        # Add a delay of 300 milliseconds between every loop
+        - delay: "00:00:00.3"
+
+mode: single
