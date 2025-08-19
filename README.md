@@ -5,7 +5,7 @@ A **Home Assistant project** that creates smart, human-centric, and energy-effic
 ## Features
 
 ✔️ Energy-efficient lighting by adapting to outdoor brightness  
-✔️ Human-centric lighting with colour temperature adjustments using [Adaptive Lighting GitHub Repository] (https://github.com/basnijholt/adaptive-lighting)  
+✔️ Human-centric lighting with colour temperature adjustments using [Adaptive Lighting GitHub Repository](https://github.com/basnijholt/adaptive-lighting)  
 ✔️ User-centric lighting with manual control and balance adjustments  
 ✔️ Hardware integration via microcontrollers and a custom joystick remote  
 
